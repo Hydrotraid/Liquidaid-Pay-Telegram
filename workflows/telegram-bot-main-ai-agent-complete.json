@@ -1,0 +1,369 @@
+{
+  "name": "Telegram Liquidate Pay Bot - Main (AI Agent Complete)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "d335c608-fb6a-4c93-bffe-b9d1146eb39e",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -688,
+        -288
+      ],
+      "webhookId": "telegram-liquidate-pay",
+      "credentials": {
+        "telegramApi": {
+          "id": "GStudeWUs8tFEpeD",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare context for AI Agent\nconst update = $input.first().json;\n\nlet chatId, messageText, callbackData, isCallback = false;\n\n// Handle callback queries (button clicks)\nif (update.callback_query) {\n  isCallback = true;\n  chatId = update.callback_query.message.chat.id;\n  callbackData = update.callback_query.data;\n  messageText = callbackData;\n} else if (update.message) {\n  chatId = update.message.chat.id;\n  messageText = update.message.text || '';\n}\n\n// Extract user information\nconst userId = update.message?.from?.id || update.callback_query?.from?.id;\nconst userName = update.message?.from?.first_name || update.callback_query?.from?.first_name;\nconst userUsername = update.message?.from?.username || update.callback_query?.from?.username;\n\n// Create session ID for memory (use chatId for conversation context)\nconst sessionId = `chat_${chatId}`;\n\nreturn [{\n  json: {\n    chatId,\n    userId,\n    userName,\n    userUsername,\n    messageText,\n    callbackData,\n    isCallback,\n    update,\n    userQuery: messageText || callbackData || '',\n    sessionId,\n    // Context for AI Agent\n    context: {\n      availableActions: [\n        'onboarding',\n        'payment',\n        'tracking',\n        'recycling',\n        'help',\n        'menu'\n      ],\n      webhookBaseUrl: process.env.WEBHOOK_BASE_URL || 'https://n8n.hypertraid.co.za'\n    }\n  }\n}];"
+      },
+      "id": "b40cf267-e11f-499d-ab29-e843cd390d58",
+      "name": "Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=You are an AI assistant for Liquidate Pay, a Telegram bot that helps users manage water bills, track usage, submit recycling, and handle payments in South Africa.\n\nYour role is to:\n1. Understand user requests and route them to appropriate workflows\n2. Use available tools to help users\n3. Maintain conversation context using memory\n4. Provide helpful, friendly responses\n\nAvailable Workflow Tools:\n- call_onboarding_workflow: Register new users or handle start commands\n- call_payment_workflow: Process bill payments (full or installments)\n- call_tracking_workflow: View water usage and bills\n- call_recycling_workflow: Submit recycling photos for rewards\n- show_help: Display help information\n- show_menu: Display main menu with options\n\nAvailable MCP Tools:\n- search_documentation: Search documentation using Ref MCP\n- sequential_thinking: Use Sequential Thinking for complex problem solving\n- vibe_check: Use VibeCheck for quality assurance and pattern recognition\n- browserbase_automation: Use Browserbase for web automation\n- playwright_automation: Use Playwright for browser automation\n\nCommand Mapping:\n- /start, /register, start, register → call_onboarding_workflow\n- /pay, pay_bill, payment → call_payment_workflow\n- /track, track_usage, tracking → call_tracking_workflow\n- /recycle, submit_recycling, recycling → call_recycling_workflow\n- /help, help → show_help\n- /menu, menu → show_menu\n\nAlways be helpful, concise, and guide users through the process. Use memory to remember previous conversations with each user."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        144,
+        -288
+      ],
+      "id": "2e4df05a-53b5-4b8a-8aad-d08d9ffbe954",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "tngtech/deepseek-r1t2-chimera:free",
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -64
+      ],
+      "id": "601148a3-78fb-4973-9fc9-5cb7a59d8e88",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "aym3Qqb4sPjQHwVv",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "minimax/minimax-m2:free",
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -64
+      ],
+      "id": "09d657bb-cbf1-4341-b9cc-9f72057828d2",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "aym3Qqb4sPjQHwVv",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionKey": "={{ $('Prepare Context').first().json.sessionId }}",
+        "tableName": "ai_chat_memory",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        528,
+        -64
+      ],
+      "id": "36f89e41-0d36-4201-8872-239fb3e97b14",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "PrUx2D0xga14avjz",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Context').first().json.context.webhookBaseUrl }}/webhook/user-onboarding",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $json.chatId || $('Prepare Context').first().json.chatId }}\",\n  \"userId\": \"{{ $json.userId || $('Prepare Context').first().json.userId }}\",\n  \"userName\": \"{{ $json.userName || $('Prepare Context').first().json.userName }}\",\n  \"messageText\": \"{{ $json.messageText || $('Prepare Context').first().json.messageText }}\",\n  \"update\": {{ JSON.stringify($('Prepare Context').first().json.update) }}\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        656,
+        -64
+      ],
+      "id": "3d0ecb8b-f87f-49ee-837b-54daa7a47a8e",
+      "name": "Tool: Onboarding",
+      "description": "Call the user onboarding workflow to register new users or handle start commands. Use this when users want to register, start using the bot, or set up their account."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Context').first().json.context.webhookBaseUrl }}/webhook/payment-processing",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $json.chatId || $('Prepare Context').first().json.chatId }}\",\n  \"userId\": \"{{ $json.userId || $('Prepare Context').first().json.userId }}\",\n  \"callbackData\": \"{{ $json.callbackData || $('Prepare Context').first().json.callbackData }}\",\n  \"update\": {{ JSON.stringify($('Prepare Context').first().json.update) }}\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        -64
+      ],
+      "id": "bae85cb8-0df1-4175-9ad3-59b4ff0d2a23",
+      "name": "Tool: Payment",
+      "description": "Call the payment processing workflow to handle bill payments. Use this when users want to pay bills, make payments, or process transactions."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Context').first().json.context.webhookBaseUrl }}/webhook/water-tracking",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $json.chatId || $('Prepare Context').first().json.chatId }}\",\n  \"userId\": \"{{ $json.userId || $('Prepare Context').first().json.userId }}\",\n  \"update\": {{ JSON.stringify($('Prepare Context').first().json.update) }}\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        -64
+      ],
+      "id": "ad79c8eb-2685-468a-97f9-13aafc8c72e3",
+      "name": "Tool: Tracking",
+      "description": "Call the water tracking workflow to view usage and bills. Use this when users want to track water usage, view bills, or check consumption history."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare Context').first().json.context.webhookBaseUrl }}/webhook/recycling-rewards",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $json.chatId || $('Prepare Context').first().json.chatId }}\",\n  \"userId\": \"{{ $json.userId || $('Prepare Context').first().json.userId }}\",\n  \"update\": {{ JSON.stringify($('Prepare Context').first().json.update) }}\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -64
+      ],
+      "id": "db540ca5-4fc4-4904-9b34-939a8733a724",
+      "name": "Tool: Recycling",
+      "description": "Call the recycling rewards workflow to submit recycling photos. Use this when users want to submit recycling, earn rewards, or upload recycling photos."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract AI Agent response and format for Telegram\nconst agentResponse = $input.first().json;\n\n// Get context from Prepare Context node\nconst context = $('Prepare Context').first().json;\nconst chatId = context.chatId || '';\n\n// Extract message from agent response\nlet message = '';\nlet keyboard = null;\n\nif (agentResponse.output) {\n  message = agentResponse.output;\n} else if (agentResponse.text) {\n  message = agentResponse.text;\n} else if (typeof agentResponse === 'string') {\n  message = agentResponse;\n} else if (agentResponse.json && agentResponse.json.message) {\n  message = agentResponse.json.message;\n  keyboard = agentResponse.json.keyboard;\n}\n\n// If message contains help content, create help keyboard\nif (message.includes('Liquidate Pay Bot') && message.includes('Available Commands')) {\n  keyboard = {\n    inline_keyboard: [\n      [\n        { text: '🏠 Main Menu', callback_data: 'menu' },\n        { text: '💰 Pay Bill', callback_data: 'pay_bill' }\n      ],\n      [\n        { text: '📊 Track Usage', callback_data: 'track_usage' },\n        { text: '♻️ Submit Recycling', callback_data: 'submit_recycling' }\n      ]\n    ]\n  };\n}\n\n// If no message, use default\nif (!message) {\n  message = 'I received your message and processed it. How can I help you further?';\n}\n\nreturn [{\n  json: {\n    chatId: chatId,\n    message: message,\n    keyboard: keyboard,\n    parseMode: 'Markdown'\n  }\n}];"
+      },
+      "id": "7dec944a-b586-4709-98e0-63eb0bf34eea",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "={{ $json.parseMode || 'HTML' }}"
+        }
+      },
+      "id": "43877453-83a6-4c64-a7c1-b673283af966",
+      "name": "Send Telegram Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        1088,
+        -288
+      ],
+      "webhookId": "bc7e64c5-d743-4004-a907-0f231f5eaf15",
+      "credentials": {
+        "telegramApi": {
+          "id": "GStudeWUs8tFEpeD",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Context": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: Onboarding": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: Payment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Tool: Tracking": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Tool: Recycling": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 3
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c2ffe3f8-997e-4e23-b3b0-eb59d977de48",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3184e41c8b770589128954305829d121478186e2431322570627fe2614994194"
+  },
+  "id": "hhAIVyeSF6NWa2r8",
+  "tags": []
+}
