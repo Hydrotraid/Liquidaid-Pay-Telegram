@@ -1,0 +1,12 @@
+{
+  "name": "Bill Notifications",
+  "nodes": [],
+  "pinData": {},
+  "connections": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "note": "Bill Notifications workflow configuration. This workflow handles automated bill payment reminders and notifications. Import this workflow from your Notion documentation or configure it manually in n8n."
+}
